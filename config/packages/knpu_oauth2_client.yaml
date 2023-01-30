@@ -1,0 +1,12 @@
+knpu_oauth2_client:
+
+    clients:
+        # configure your clients as described here: https://github.com/knpuniversity/oauth2-client-bundle#configuration
+        generic:
+            type: generic
+            provider_class: App\Security\OauthPasaiaProvider
+            client_id: '%env(auth_clientId)%'
+            client_secret: '%env(auth_clientSecret)%'
+            redirect_route: oauth_check
+            redirect_params: { }
+            use_state: false

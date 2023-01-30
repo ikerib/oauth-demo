@@ -1,0 +1,80 @@
+version: "3.7"
+services:
+  dbdemo:
+    container_name: appdemo_db
+    image: mysql:8.0
+    command: ['--character-set-server=utf8mb4', '--collation-server=utf8mb4_unicode_ci','--default-authentication-plugin=mysql_native_password']
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    ports:
+      - "3306:3306"
+    volumes:
+      - v_appdemo_db13:/var/lib/mysql
+    networks:
+      - default
+      - sso
+
+  appdemo:
+    container_name: appdemo_app
+    env_file: ./.env.local
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+      - "sesamo.test:172.21.0.7" # Oauth zerbitzariaren IP-a zehaztu bestela ez du topatuko
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+      args:
+        - DOCKER_TIMEZONE=${DOCKER_TIMEZONE}
+        - USER_ID=${USER_ID}
+        - GROUP_ID=${GROUP_ID}
+    user: "${USER_ID}:${GROUP_ID}"
+    ports:
+      - "9009:9000"
+    depends_on:
+      - dbdemo
+    volumes:
+      - ".:/usr/src/app"
+      - "./docker/php/conf/my-php.ini:/usr/local/etc/php/php.ini:ro"
+      - "./docker/php/conf/xdebug.ini:/usr/local/etc/php/conf.d/xdebug.ini:ro"
+      - "./docker/php/conf/zz-docker.conf:/usr/local/etc/php-fpm.d/zz-docker.conf:ro"
+      - "./docker/uploads/:/usr/src/app/public/uploads"
+    working_dir: /usr/src/app
+    networks:
+      - default
+      - sso
+
+
+  nginxdemo:
+    container_name: appdemo_nginx
+    build:
+      context: ./
+      dockerfile: docker/nginx/Dockerfile
+    depends_on:
+      - appdemo
+    ports:
+      - "8000:80"
+      - "8443:443"
+    volumes:
+      - "./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro"
+      - "./docker/nginx/ssl/:/etc/nginx/ssl/"
+    volumes_from:
+      - appdemo
+    working_dir: /usr/src/app
+    networks:
+      - default
+      - sso
+
+volumes:
+  v_appdemo_db13:
+  v_appdemo_mysql:
+
+networks:
+  sso:
+    external: true
+  default:
+    ipam:
+      config:
+        - subnet: 172.218.0.0/16
